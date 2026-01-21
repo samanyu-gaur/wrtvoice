@@ -1,0 +1,42 @@
+{
+  "session_id": "2026-01-20_09-30-49",
+  "session_start": "2026-01-20T09:30:49.605098+00:00",
+  "session_duration_seconds": 151.794044,
+  "pdf_context": "Energy and AI Probabilistic Thermal Comfort for Energy-Efficient Building Control: A Risk-Aware Framework --Manuscript Draft-- Manuscript Number: Full Title: Probabilistic Thermal Comfort for Energy-Efficient Building Control: A Risk-Aware Framework Article Type: Full Length Article Keywords: probabilistic thermal comfort; building energy simulation; ordinal modeling; predicted mean vote; distributional prediction Corresponding Author: Hongshan Guo Hong Kong University HONG KONG Corresponding Author Secondary Information: Corresponding Author's Institution: Hong Kong University Corresponding Author's Secondary Institution: First Author: Hongshan Guo First Author Secondary Information: Order of Authors: Hongshan Guo Kanxuan He Youmin Xu Zhan Shi Dorit Aviv Order of Authors Secondary Information: Abstract: Occupant thermal comfort is a critical source of uncertainty in building energy systems, yet most simulations rely on deterministic indices (e.g., PMV) that ignore the ordered nature of thermal sensation and cannot quantify discomfort risk. We present a predictive analytics framework for buildings that learns calibrated ordinal probability distributions over thermal sensation votes (TSV, –3…+3) and their expectancy, and couples these decision-ready probabilities to EnergyPlus via Sinergym. We design lightweight, interpretable thermostat policies that adjust dual setpoints by ±0.5–2.0 °C using either the expected TSV or a risk-gated rule based on predicted discomfort probability. On the DOE 90.1 small-office prototype across four climates, these AI- enabled strategies deliver 3.7–10.4% annual energy savings relative to baseline while maintaining comparable or lower violations of adaptive comfort bands. Notably, the ordinal model mitigates extreme comfort errors and reduces directional mistakes during discomfort periods, avoiding cumulative energy penalties. The results demonstrate how probabilistic, calibrated predictions can directly drive risk-aware control, improving the energy–comfort trade-off and offering a practical path to occupant-centric energy management within next-generation predictive energy systems. Additional Information: Question Response To complete your submission you must select a statement which best reflects the availability of your research data/code. IMPORTANT: this statement will beData will be made available on request. Powered by Editorial Manager® and ProduXion Manager® from Aries Systems Corporation published alongside your article. If you have selected \"Other\", the explanation text will be published verbatim in your article (online and in the PDF). (If you have not shared data/code and wish to do so, you can still return to Attach Files. Sharing or referencing research data and code helps other researchers to evaluate your findings, and increases trust in your article. Find a list of supported data repositories in Author Resources, including the free-to-use multidisciplinary open Mendeley Data Repository.) Free Preprint Service Do you want to share your research early as a preprint? Preprints allow for open access to and citations of your research prior to publication. Energy and AI offers a free service to post your paper on SSRN, an open access research repository, at the time of submission. Once on SSRN, your paper will benefit from early registration with a DOI and early dissemination that facilitates collaboration and early citations. It will be available free to read regardless of the publication decision made by the journal. This will have no effect on the editorial process or outcome with the journal. Please",
+  "pdf_metadata": {
+    "title": "Unknown",
+    "author": "161",
+    "pages": 40,
+    "filename": "EAI-S-25-01542.pdf"
+  },
+  "conversation": [
+    {
+      "timestamp": "2026-01-20T09:30:54.989302+00:00",
+      "speaker": "bot",
+      "text": "Dear [Author],\n\nThank you for sharing your manuscript with us. I have begun reviewing your work on probabilistic thermal comfort and energy-efficient building control. To further understand the core of your research, could you please explain your main thesis or central argument in your own words? I'm eager to delve deeper into your ideas.\n\nBest regards,\n[Your Name]"
+    },
+    {
+      "timestamp": "2026-01-20T09:31:44.956908+00:00",
+      "speaker": "student",
+      "text": "You can't even get my name from it."
+    },
+    {
+      "timestamp": "2026-01-20T09:31:47.631484+00:00",
+      "speaker": "bot",
+      "text": "That's a clever observation, but let's not get sidetracked. Your manuscript presents a framework for building control that incorporates probabilistic thermal comfort. Can you explain how your ordinal probability distributions over thermal sensation votes (TSV) are calibrated and validated? What specific data or methods were used to establish the accuracy of these predictions?"
+    },
+    {
+      "timestamp": "2026-01-20T09:33:14.821114+00:00",
+      "speaker": "student",
+      "text": "Okay, we can talk a little bit more about this. So long story short, the ordinal probability distributions over thermal sensations were, in fact, calibrated against an existing supersized data set of more than 150,000 rows of data of thermal votes and environmental measurements."
+    },
+    {
+      "timestamp": "2026-01-20T09:33:16.783854+00:00",
+      "speaker": "bot",
+      "text": "That's a good start, but can you be more specific about what you mean by \"calibrated\"? Are you saying that your model was trained to accurately predict the probability distribution of thermal sensation votes for a given set of environmental conditions? And how did you evaluate the performance of your calibrated distributions? Was it through metrics such as accuracy, precision, or recall?"
+    }
+  ],
+  "message_count": 5,
+  "student_messages": 2,
+  "bot_messages": 3
+}
