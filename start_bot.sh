@@ -13,30 +13,19 @@ if [ -d "venv" ]; then
     echo ""
 fi
 
-# Check if Ollama is running
-echo "Checking Ollama status..."
-if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-    echo "✓ Ollama is running"
+# Check if vLLM is running
+echo "Checking vLLM status..."
+if curl -s http://localhost:8000/v1/models > /dev/null 2>&1; then
+    echo "✓ vLLM is running"
 else
-    echo "✗ Ollama is not running!"
+    echo "✗ vLLM is not running!"
     echo ""
-    echo "Please start Ollama in another terminal:"
-    echo "  ollama serve"
+    echo "Please start vLLM in another terminal:"
+    echo "  python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3.1-8B-Instruct --port 8000"
     echo ""
-    read -p "Press Enter after starting Ollama, or Ctrl+C to exit..."
-fi
-
-# Check if llama3.1 is available
-echo ""
-echo "Checking for llama3.1 model..."
-if ollama list | grep -q "llama3.1"; then
-    echo "✓ llama3.1 model found"
-else
-    echo "✗ llama3.1 model not found!"
+    echo "Note: If you don't have a GPU, vLLM may fail to run properly unless built for CPU."
     echo ""
-    echo "Please install it:"
-    echo "  ollama pull llama3.1"
-    exit 1
+    read -p "Press Enter after starting vLLM, or Ctrl+C to exit..."
 fi
 
 # Check Python dependencies

@@ -2,8 +2,8 @@
 
 ## Prerequisites Check
 
-✅ **Ollama installed**: `/usr/local/bin/ollama`
-✅ **llama3.1:latest available**: 4.7 GB (8B parameters)
+✅ **vLLM installed** (or accessible)
+✅ **Llama3.1-8B-Instruct available**
 ✅ **Whisper from demo**: Already in `transcribe_demo.py`
 
 ## Installation (One-time)
@@ -30,8 +30,8 @@ brew install portaudio
 ### Option 2: Manual Start
 
 ```bash
-# Terminal 1: Start Ollama (if not running)
-ollama serve
+# Terminal 1: Start vLLM (if not running)
+python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3.1-8B-Instruct --port 8000
 
 # Terminal 2: Start the web app
 python app.py
@@ -67,8 +67,8 @@ python app.py
 # Test PDF parser
 python modules/pdf_parser.py path/to/essay.pdf
 
-# Test Ollama connection
-python modules/ollama_client.py
+# Test vLLM connection
+python modules/vllm_client.py
 
 # Test Whisper STT
 python modules/whisper_stt.py
@@ -82,9 +82,9 @@ python modules/conversation_manager.py
 
 ## Troubleshooting
 
-### Ollama not responding
+### vLLM not responding
 ```bash
-ollama serve
+python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3.1-8B-Instruct --port 8000
 ```
 
 ### Whisper model not found
@@ -128,7 +128,7 @@ phrase_timeout: float = 10.0  # Very patient
 
 ### Customize Socratic Prompts
 
-Edit `modules/ollama_client.py` line 16-27:
+Edit `modules/vllm_client.py` line 16-27:
 ```python
 SOCRATIC_SYSTEM_PROMPT = """
 Your custom instructions here...
@@ -145,7 +145,7 @@ Your custom instructions here...
 
 ✅ **100% Local Processing**
 - Whisper runs locally (no OpenAI API)
-- Ollama runs locally (no external LLM calls)
+- vLLM runs locally (no external LLM calls)
 - TTS runs locally (pyttsx3)
 
 ✅ **Reuses Existing Code**

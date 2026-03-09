@@ -1,17 +1,15 @@
 """
-Ollama Client Module
-Handles communication with local Ollama instance running llama3.1 for Socratic dialogue.
+vLLM Client Module
+Handles communication with a vLLM server via the OpenAI-compatible API.
 """
 
-import requests
 import json
-from typing import List, Dict, Optional, AsyncGenerator
+from typing import List, Dict, AsyncGenerator
 import aiohttp
-import asyncio
+from openai import OpenAI, AsyncOpenAI
 
-
-class OllamaClient:
-    """Client for interacting with Ollama API."""
+class VLLMClient:
+    """Client for interacting with vLLM API using OpenAI compatibility layer."""
 
     SOCRATIC_SYSTEM_PROMPT = """You are a Socratic tutor helping a student defend their essay through critical questioning.
 
@@ -26,30 +24,32 @@ Your role:
 
 Remember: Your goal is to strengthen their argument by making them defend it thoroughly."""
 
-    def __init__(self, base_url: str = "http://localhost:11434", model: str = "llama3.1:latest"):
+    def __init__(self, base_url: str = "http://localhost:8000/v1", model: str = "meta-llama/Meta-Llama-3.1-8B-Instruct"):
         """
-        Initialize Ollama client.
+        Initialize vLLM client.
 
         Args:
-            base_url: Ollama server URL
+            base_url: vLLM OpenAI-compatible server URL
             model: Model name to use
         """
         self.base_url = base_url
         self.model = model
-        self.api_url = f"{base_url}/api/generate"
-        self.chat_url = f"{base_url}/api/chat"
+        self.client = OpenAI(base_url=base_url, api_key="EMPTY")
+        self.async_client = AsyncOpenAI(base_url=base_url, api_key="EMPTY")
 
     def check_connection(self) -> bool:
         """
-        Check if Ollama server is accessible.
+        Check if vLLM server is accessible.
 
         Returns:
             True if server is running, False otherwise
         """
         try:
-            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
-            return response.status_code == 200
-        except Exception:
+            # Check models endpoint to verify connection
+            self.client.models.list()
+            return True
+        except Exception as e:
+            print(f"Connection check failed: {e}")
             return False
 
     def initialize_context(self, pdf_context: str) -> Dict:
@@ -84,14 +84,6 @@ Be encouraging but set an intellectually rigorous tone."""
     ) -> Dict:
         """
         Generate a Socratic response to student's statement.
-
-        Args:
-            student_input: What the student just said
-            pdf_context: Original essay excerpt
-            conversation_history: Previous exchanges
-
-        Returns:
-            Dictionary with 'response' and 'done' keys
         """
         # Format conversation history
         history_text = "\n".join([
@@ -122,14 +114,6 @@ Your Socratic response:"""
     ) -> AsyncGenerator[str, None]:
         """
         Generate a Socratic response with streaming (word-by-word).
-
-        Args:
-            student_input: What the student just said
-            pdf_context: Original essay excerpt
-            conversation_history: Previous exchanges
-
-        Yields:
-            Chunks of the response as they're generated
         """
         # Format conversation history
         history_text = "\n".join([
@@ -155,138 +139,105 @@ Your Socratic response:"""
 
     async def generate_stream(self, prompt: str) -> AsyncGenerator[str, None]:
         """
-        Generate response from Ollama with streaming.
-
-        Args:
-            prompt: Input prompt
-
-        Yields:
-            Response chunks as they arrive
+        Generate response from vLLM with streaming.
         """
         try:
-            payload = {
-                "model": self.model,
-                "prompt": prompt,
-                "stream": True,
-                "options": {
-                    "temperature": 0.7,
-                    "top_p": 0.9,
-                }
-            }
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(self.api_url, json=payload) as response:
-                    async for line in response.content:
-                        if line:
-                            try:
-                                data = json.loads(line.decode('utf-8'))
-                                chunk = data.get("response", "")
-                                if chunk:
-                                    yield chunk
-                            except json.JSONDecodeError:
-                                continue
+            stream = await self.async_client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                stream=True,
+                temperature=0.7,
+                top_p=0.9,
+                max_tokens=150
+            )
+            async for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    yield chunk.choices[0].delta.content
 
         except Exception as e:
             yield f"[Error: {str(e)}]"
 
     def generate(self, prompt: str, stream: bool = False) -> Dict:
         """
-        Generate response from Ollama.
-
-        Args:
-            prompt: Input prompt
-            stream: Whether to stream response
-
-        Returns:
-            Dictionary with response text
+        Generate response from vLLM.
         """
         try:
-            payload = {
-                "model": self.model,
-                "prompt": prompt,
-                "stream": stream,
-                "options": {
-                    "temperature": 0.7,
-                    "top_p": 0.9,
-                }
-            }
-
-            response = requests.post(self.api_url, json=payload, timeout=60)
-            response.raise_for_status()
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                stream=stream,
+                temperature=0.7,
+                top_p=0.9,
+                max_tokens=150
+            )
 
             if stream:
-                return {"response": response.text, "stream": True}
+                # To fully support the old interface, though streaming is mostly done via the async generator
+                return {"response": response, "stream": True}
             else:
-                result = response.json()
+                content = response.choices[0].message.content.strip()
                 return {
-                    "response": result.get("response", "").strip(),
-                    "done": result.get("done", False)
+                    "response": content,
+                    "done": True
                 }
 
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             return {
-                "response": f"Error communicating with Ollama: {str(e)}",
+                "response": f"Error communicating with vLLM: {str(e)}",
                 "error": True
             }
 
     def chat(self, messages: List[Dict[str, str]]) -> Dict:
         """
         Use chat endpoint for multi-turn conversations.
-
-        Args:
-            messages: List of message dictionaries with 'role' and 'content'
-
-        Returns:
-            Dictionary with response
         """
         try:
-            payload = {
-                "model": self.model,
-                "messages": messages,
-                "stream": False
-            }
+            # Map roles properly
+            formatted_messages = []
+            for msg in messages:
+                role = msg.get("role", "user")
+                if role not in ["system", "user", "assistant"]:
+                    role = "user"
+                formatted_messages.append({
+                    "role": role,
+                    "content": msg.get("content", "")
+                })
 
-            response = requests.post(self.chat_url, json=payload, timeout=60)
-            response.raise_for_status()
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=formatted_messages,
+                temperature=0.7,
+                top_p=0.9,
+                max_tokens=150
+            )
 
-            result = response.json()
+            content = response.choices[0].message.content.strip()
             return {
-                "response": result.get("message", {}).get("content", "").strip(),
-                "done": result.get("done", False)
+                "response": content,
+                "done": True
             }
 
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             return {
                 "response": f"Error: {str(e)}",
                 "error": True
             }
 
-
 if __name__ == "__main__":
-    # Test the Ollama client
-    client = OllamaClient()
+    # Test the vLLM client
+    client = VLLMClient()
 
-    print("Checking Ollama connection...")
+    print("Checking vLLM connection...")
     if client.check_connection():
-        print("✓ Connected to Ollama successfully")
+        print(f"✓ Connected to vLLM successfully (Model: {client.model})")
 
-        # Test with sample essay context
-        sample_context = """
-        The impact of social media on democratic discourse has been profound and multifaceted.
-        This essay argues that while social media platforms have democratized information access,
-        they have simultaneously created echo chambers that polarize public opinion and undermine
-        constructive political dialogue. The algorithmic curation of content, designed to maximize
-        engagement, inadvertently promotes sensationalism over substance.
-        """
-
+        sample_context = "The impact of social media on democratic discourse has been profound..."
         print("\nInitializing context with sample essay...")
         initial_response = client.initialize_context(sample_context.strip())
         print(f"Bot: {initial_response.get('response', 'No response')}")
 
-        # Test Socratic response
         print("\nGenerating Socratic response...")
         student_statement = "I think social media algorithms are the main problem because they show people what they want to see."
-
         socratic_response = client.generate_socratic_response(
             student_input=student_statement,
             pdf_context=sample_context.strip(),
@@ -295,5 +246,5 @@ if __name__ == "__main__":
         print(f"Bot: {socratic_response.get('response', 'No response')}")
 
     else:
-        print("✗ Failed to connect to Ollama. Is it running?")
-        print("  Try: ollama serve")
+        print("✗ Failed to connect to vLLM. Is it running?")
+        print("  Try checking your vLLM server URL and making sure it's accessible.")

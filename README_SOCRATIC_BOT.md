@@ -6,7 +6,7 @@ A web-based application that uses real-time speech transcription (Whisper) and A
 
 - **PDF Upload**: Upload essay PDFs and extract the first 500 words for context
 - **Real-time Transcription**: Uses OpenAI's Whisper for live speech-to-text
-- **Socratic Dialogue**: LLaMA 3.1 acts as a tutor challenging arguments
+- **Socratic Dialogue**: vLLM serving LLaMA 3.1 acts as a tutor challenging arguments
 - **Text-to-Speech**: Bot responses are spoken aloud using pyttsx3
 - **Conversation Splitting**: Automatic phrase detection from `transcribe_demo.py`
 - **Session Storage**: All dialogues saved as timestamped JSON files
@@ -16,7 +16,7 @@ A web-based application that uses real-time speech transcription (Whisper) and A
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│   Browser   │ ←──→│   FastAPI    │ ←──→│   Ollama    │
+│   Browser   │ ←──→│   FastAPI    │ ←──→│    vLLM     │
 │  (WebUI)    │     │   (app.py)   │     │ (llama3.1)  │
 └─────────────┘     └──────────────┘     └─────────────┘
                            ↕
@@ -29,7 +29,7 @@ A web-based application that uses real-time speech transcription (Whisper) and A
 ## 📋 Prerequisites
 
 1. **Python 3.8+**
-2. **Ollama** with `llama3.1:latest` model (already installed ✓)
+2. **vLLM** serving `meta-llama/Meta-Llama-3.1-8B-Instruct` model
 3. **FFmpeg** (for audio processing)
 4. **PyAudio** dependencies
 
@@ -57,14 +57,14 @@ pip install -r requirements.txt
 pip install -r requirements_web.txt
 ```
 
-### 3. Verify Ollama is Running
+### 3. Verify vLLM is Running
 
 ```bash
-# Check if Ollama is running
-curl http://localhost:11434/api/tags
+# Check if vLLM is running
+curl http://localhost:8000/v1/models
 
 # If not running, start it
-ollama serve
+python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3.1-8B-Instruct --port 8000
 ```
 
 ## 📖 Usage
@@ -109,7 +109,7 @@ whisper_real_time/
 ├── modules/
 │   ├── __init__.py
 │   ├── pdf_parser.py           # PDF text extraction
-│   ├── ollama_client.py        # Ollama/LLaMA integration
+│   ├── vllm_client.py          # vLLM/LLaMA integration
 │   ├── whisper_stt.py          # Real-time speech-to-text
 │   ├── tts_engine.py           # Text-to-speech
 │   └── conversation_manager.py # Session management & storage
@@ -143,7 +143,7 @@ phrase_timeout = 3.0  # Seconds of silence before phrase completes
 
 ### Socratic Prompt Customization
 
-Edit in `modules/ollama_client.py`:
+Edit in `modules/vllm_client.py`:
 
 ```python
 SOCRATIC_SYSTEM_PROMPT = """
@@ -174,10 +174,10 @@ Your custom instructions here...
 python modules/pdf_parser.py path/to/essay.pdf
 ```
 
-### Test Ollama Client
+### Test vLLM Client
 
 ```bash
-python modules/ollama_client.py
+python modules/vllm_client.py
 ```
 
 ### Test Whisper STT
@@ -231,14 +231,11 @@ python modules/conversation_manager.py
 
 ## 🐛 Troubleshooting
 
-### "Ollama not available" Error
+### "vLLM not available" Error
 
 ```bash
-# Start Ollama server
-ollama serve
-
-# Verify llama3.1 is installed
-ollama list
+# Start vLLM server
+python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3.1-8B-Instruct --port 8000
 ```
 
 ### PyAudio Installation Issues (macOS)
@@ -285,7 +282,7 @@ Inherits license from the original Whisper Real-Time repository.
 
 - Built on top of the existing `transcribe_demo.py` implementation
 - Uses OpenAI's Whisper for speech recognition
-- Powered by Ollama and LLaMA 3.1 for dialogue generation
+- Powered by vLLM and LLaMA 3.1 for dialogue generation
 - Text-to-speech via pyttsx3
 
 ---

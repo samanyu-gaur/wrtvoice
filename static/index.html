@@ -253,8 +253,8 @@
         <button class="btn" id="startBtn" disabled>Start Session</button>
 
         <div class="footer">
-            <span class="status-indicator inactive" id="ollamaStatus"></span>
-            <span id="ollamaText">Checking Ollama...</span>
+            <span class="status-indicator inactive" id="vllmStatus"></span>
+            <span id="vllmText">Checking vLLM...</span>
         </div>
     </div>
 
@@ -269,27 +269,27 @@
         const loadingText = document.getElementById('loadingText');
         const errorMsg = document.getElementById('errorMsg');
         const successMsg = document.getElementById('successMsg');
-        const ollamaStatus = document.getElementById('ollamaStatus');
-        const ollamaText = document.getElementById('ollamaText');
+        const vllmStatus = document.getElementById('vllmStatus');
+        const vllmText = document.getElementById('vllmText');
 
         let uploadedFile = null;
 
-        // Check Ollama status on load
+        // Check vLLM status on load
         async function checkHealth() {
             try {
                 const response = await fetch('/health');
                 const data = await response.json();
 
-                if (data.ollama_connected) {
-                    ollamaStatus.className = 'status-indicator active';
-                    ollamaText.textContent = 'Ollama connected';
+                if (data.vllm_connected) {
+                    vllmStatus.className = 'status-indicator active';
+                    vllmText.textContent = 'vLLM connected';
                 } else {
-                    ollamaStatus.className = 'status-indicator inactive';
-                    ollamaText.textContent = 'Ollama not available';
+                    vllmStatus.className = 'status-indicator inactive';
+                    vllmText.textContent = 'vLLM not available';
                 }
             } catch (error) {
-                ollamaStatus.className = 'status-indicator inactive';
-                ollamaText.textContent = 'Server not responding';
+                vllmStatus.className = 'status-indicator inactive';
+                vllmText.textContent = 'Server not responding';
             }
         }
 

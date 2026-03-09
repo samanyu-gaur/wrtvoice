@@ -29,3 +29,4 @@ PyPDF2
 
 # Utilities
 python-dotenv
+openai

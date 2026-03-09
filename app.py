@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from modules.pdf_parser import PDFParser
-from modules.ollama_client import OllamaClient
+from modules.vllm_client import VLLMClient
 from modules.whisper_stt import WhisperSTT
 from modules.tts_engine import TTSEngine
 from modules.conversation_manager import ConversationManager
@@ -34,7 +34,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Global instances
 conversation_manager = ConversationManager(storage_dir="conversations")
-ollama_client = OllamaClient()
+llm_client = VLLMClient()
 # tts_engine = TTSEngine(rate=160, volume=0.9)  # Disabled for now (haunting voice)
 
 # Session state
@@ -62,11 +62,11 @@ async def conversation_page():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    ollama_status = ollama_client.check_connection()
+    llm_status = llm_client.check_connection()
 
     return {
         "status": "healthy",
-        "ollama_connected": ollama_status,
+        "vllm_connected": llm_status,
         "pdf_uploaded": current_session["pdf_uploaded"],
         "session_active": current_session["session_active"]
     }
@@ -132,9 +132,9 @@ async def start_session(request: SessionStartRequest):
         raise HTTPException(status_code=400, detail="No PDF uploaded")
 
     try:
-        # Check Ollama connection
-        if not ollama_client.check_connection():
-            raise HTTPException(status_code=503, detail="Ollama server not available")
+        # Check vLLM connection
+        if not llm_client.check_connection():
+            raise HTTPException(status_code=503, detail="vLLM server not available")
 
         # Start conversation session
         session_id = conversation_manager.start_session(
@@ -142,8 +142,8 @@ async def start_session(request: SessionStartRequest):
             pdf_metadata=current_session["pdf_metadata"]
         )
 
-        # Get initial bot greeting from Ollama
-        initial_response = ollama_client.initialize_context(current_session["pdf_context"])
+        # Get initial bot greeting from vLLM
+        initial_response = llm_client.initialize_context(current_session["pdf_context"])
         bot_message = initial_response.get("response", "Hello! Let's discuss your essay.")
 
         # Add to conversation
@@ -261,9 +261,9 @@ async def websocket_conversation(websocket: WebSocket):
                     # Send "responding" status before streaming
                     await websocket.send_json({"type": "status", "status": "responding"})
 
-                    # Stream response from Ollama word-by-word
+                    # Stream response from vLLM word-by-word
                     full_response = ""
-                    async for chunk in ollama_client.generate_socratic_response_stream(
+                    async for chunk in llm_client.generate_socratic_response_stream(
                         student_input=text,
                         pdf_context=current_session["pdf_context"],
                         conversation_history=conversation_history
@@ -396,13 +396,13 @@ if __name__ == "__main__":
     print("Socratic Method Bot - Starting Server")
     print("=" * 70)
 
-    # Check Ollama connection
-    print("\nChecking Ollama connection...")
-    if ollama_client.check_connection():
-        print("✓ Ollama is running (llama3.1:latest)")
+    # Check vLLM connection
+    print("\nChecking vLLM connection...")
+    if llm_client.check_connection():
+        print(f"✓ vLLM is running ({llm_client.model})")
     else:
-        print("✗ WARNING: Ollama is not running!")
-        print("  Start it with: ollama serve")
+        print("✗ WARNING: vLLM is not running!")
+        print("  Start it with: python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3.1-8B-Instruct --port 8000")
 
     print("\nServer will start at: http://localhost:8000")
     print("Press Ctrl+C to stop\n")
