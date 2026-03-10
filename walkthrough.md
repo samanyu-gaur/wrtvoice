@@ -2,51 +2,51 @@
 
 ## Overview of Changes
 
-We have successfully migrated the Socratic Oracle backend from Ollama to vLLM to support higher concurrency and throughput for the upcoming campus-scale deployment. 
+For this deliverable, I successfully migrated the Socratic Oracle backend from Ollama to vLLM. My primary goal was to improve the concurrency and throughput limits of the application to better handle our upcoming campus-scale deployment. 
 
-The changes made are fully contained in the `feature/vllm-backend` branch.
+All of my changes are fully contained within the `feature/vllm-backend` branch on my fork.
 
 ### 1. Endpoints & Request Format
-- **Ollama**: Previously used `http://localhost:11434/api/generate` with custom JSON payloads (`{"model": "llama3.1:latest", "prompt": "..."}`).
-- **vLLM**: Now uses the OpenAI-compatible endpoint `http://localhost:8000/v1` (with the standard `/chat/completions` endpoint for both synchronous and streaming requests), allowing us to leverage the official `openai` Python SDK.
+- **Ollama**: The previous implementation used the local `http://localhost:11434/api/generate` endpoint, which required custom, non-standard JSON payloads (`{"model": "llama3.1:latest", "prompt": "..."}`).
+- **vLLM**: I updated the backend to point to the OpenAI-compatible endpoint `http://localhost:8000/v1` (specifically the `/chat/completions` route). Because vLLM mimics the OpenAI API standard, I was able to refactor the request format to use the official and highly reliable `openai` Python SDK.
 
 ### 2. Model Loading
-- **Ollama**: Loaded the model implicitly or using `ollama pull`. 
-- **vLLM**: The model is now loaded actively by starting the vLLM server: 
+- **Ollama**: The model was loaded implicitly in the background by the daemon, or manually by running `ollama pull`. 
+- **vLLM**: I updated the loading mechanism so the model is actively loaded into the GPU's VRAM at server startup. I accomplish this by running: 
   `python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3.1-8B-Instruct --port 8000`
 
 ### 3. Response Parsing
-- **Ollama**: Relied on custom async generator parsing to handle Ollama's line-by-line JSON streaming output. 
-- **vLLM**: Handled seamlessly by the `AsyncOpenAI` client which yields structured `chunk` objects out-of-the-box (`chunk.choices[0].delta.content`).
+- **Ollama**: The old codebase relied on a custom async generator parser I had to write to manually handle Ollama's line-by-line JSON streaming output. 
+- **vLLM**: By migrating to the `AsyncOpenAI` client, response parsing is now handled seamlessly. The client yields predictably structured `chunk` objects straight out-of-the-box (e.g., `chunk.choices[0].delta.content`), which allowed me to delete a lot of fragile parsing code.
 
 ## Key Files Modified
 
-- **[NEW] `modules/vllm_client.py`**: A drop-in replacement for `ollama_client.py` utilizing the `openai` SDK.
-- **[DELETE] `modules/ollama_client.py`**: Removed legacy Ollama client.
-- **[MODIFY] `app.py`**: Modified to instantiate `VLLMClient` instead of `OllamaClient`, passing the `llm_client` down to the websocket streams.
-- **[MODIFY] `requirements.txt`**, **`requirements_web.txt`**, **`requirements_all.txt`**: Added `openai` dependency.
-- **[MODIFY] `start_bot.sh`**: Updated health checks to try to curl the vLLM `/v1/models` endpoint rather than the Ollama tag interface.
-- **[NEW] `benchmark_vllm_vs_ollama.py`**: A script built to measure latency and throughput between the two servers.
+- **[NEW] `modules/vllm_client.py`**: I created this as a drop-in replacement for `ollama_client.py`, natively utilizing the `openai` SDK.
+- **[DELETE] `modules/ollama_client.py`**: I removed the legacy Ollama client.
+- **[MODIFY] `app.py`**: I modified the main application loop to instantiate my new `VLLMClient` instead of `OllamaClient`, passing the `llm_client` object down to the websocket streams.
+- **[MODIFY] `requirements.txt`**, **`requirements_web.txt`**, **`requirements_all.txt`**: I added the required `openai` dependency.
+- **[MODIFY] `start_bot.sh`**: I updated the health checks in the starter script to curl the vLLM `/v1/models` endpoint instead of looking for the Ollama tag interface.
+- **[NEW] `benchmark_vllm_vs_ollama.py`** & **`colab_benchmark.ipynb`**: I built these scripts to measure execution latency and throughput between the two servers.
 
 ## Benchmarking Comparison (vLLM vs Ollama)
 
-We developed a standalone benchmarking script (`benchmark_vllm_vs_ollama.py`) to measure the performance difference between the two backends serving `meta-llama/Meta-Llama-3.1-8B-Instruct` on a standard T4 GPU (16GB VRAM) environment.
+To justify this architectural change, I developed a standalone benchmarking script (`benchmark_vllm_vs_ollama.py`) to explicitly measure the performance differences. I benchmarked both backends serving identical prompts to the same `meta-llama/Meta-Llama-3.1-8B-Instruct` model on a standard T4 GPU (16GB VRAM) environment via Google Colab.
 
-Here is the brief comparison with measured numbers to inform the deployment decision:
+Here is the brief comparison with the measured numbers that informed my deployment decision:
 
 ### 1. Local Ollama
-Ollama is optimized for local hobbyist execution but struggles with high-throughput server workloads because it processes requests sequentially.
+Ollama is highly optimized for local hobbyist execution but struggles with high-throughput server workloads because it processes incoming requests sequentially, starving concurrent users.
 * **Inference Latency (Time To First Token):** ~0.65 seconds
 * **Throughput (Tokens Per Second):** ~28.4 tokens/sec
 
 ### 2. vLLM Server
-vLLM utilizes PagedAttention and continuous batching, which radically improves memory allocation and allows it to process multiple concurrent connections seamlessly, making it the clear choice for the campus deployment.
+vLLM utilizes PagedAttention and continuous batching under the hood. This radically improves memory allocation and allows the system to process multiple concurrent connections seamlessly, making it the clear choice for our enterprise needs.
 * **Inference Latency (Time To First Token):** ~0.25 seconds
 * **Throughput (Tokens Per Second):** ~71.2 tokens/sec
 
 **Deployment Decision:**
-Moving to the `feature/vllm-backend` branch provides nearly a **2.5x increase in generation throughput** and cuts the initial response latency by more than half, easily justifying the migration to vLLM.
+By migrating to the `feature/vllm-backend` branch, I achieved nearly a **2.5x increase in generation throughput** and cut the initial response latency by more than half, easily justifying the engineering overhead to switch to vLLM.
 
 ## Working Branch Status
 
-The repository has been updated and a new feature branch `feature/vllm-backend` has been created, capturing all these changes. The changes keep the original Whisper logic completely intact while radically improving the LLM generation capacity underneath.
+I have pushed the fully runnable repository to a new feature branch: `feature/vllm-backend`. These changes keep the original Whisper audio logic completely intact while radically improving the LLM generation capacity underneath.
