@@ -53,7 +53,9 @@ I have pushed the fully runnable repository to a new feature branch: `feature/vl
 
 ## Division of Labor / Contributions
 
-*   **[Student 1 Name]**: Engineered the initial vLLM client (`vllm_client.py`) and executed the `AsyncOpenAI` SDK wrapper integration. Designed and executed the performance benchmark script (`benchmark_vllm_vs_ollama.py`) to gather the throughput vs latency metrics.
-*   **[Student 2 Name]**: Refactored the FastAPI WebSocket architecture (`app.py`) to transparently swap the global `llm_client` object. Rewrote the startup health checks (`start_bot.sh`), managed dependency resolution (`requirements.txt`), and wrote the core task documentation (`walkthrough.md`).
-
-*(Note: Please adjust these bullet points to reflect your group's actual division of labor!)*
+*   **Samanyu Gaur**: 
+    *   **Deliverable 1 (Backend Migration)**: Completed the entire migration from Ollama to vLLM independently, including the code rewrite (`vllm_client.py`, `app.py`), benchmarking script, and documentation.
+    *   **Deliverable 2 (Session Management)**: Developed the methodology, system design, and resource estimation for the session management layer.
+*   **Akshay**: 
+    *   **Deliverable 2 (Session Management)**: Implemented the backend code for the session queue, concurrency handling, and the admin dashboard interface.
+    *   **Deliverable 3 (Visual Design Extension)**: Completed the entire vision-language model (VLM) integration independently, including model investigation, API endpoint creation, and JSON schema extension.
