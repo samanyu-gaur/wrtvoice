@@ -1,21 +1,24 @@
 # Quick Start Guide - Socratic Method Bot
 
+This guide covers how to set up and run the Socratic Method Bot locally.
+
 ## Prerequisites Check
 
-✅ **vLLM installed** (or accessible)
-✅ **Llama3.1-8B-Instruct available**
-✅ **Whisper from demo**: Already in `transcribe_demo.py`
+Before starting, ensure you have:
+✅ **vLLM installed** (or accessible on your network)
+✅ **Llama3.1-8B-Instruct** (or a similar instruction-tuned model)
+✅ **Whisper dependencies**: (Included in the `transcribe_demo.py` setup)
 
-## Installation (One-time)
+## Installation (One-time Setup)
 
 ```bash
-# 1. Install new dependencies
+# 1. Install the required Python packages
 pip install -r requirements_web.txt
 
-# 2. Install FFmpeg if needed (macOS)
+# 2. Install FFmpeg for audio processing (macOS example)
 brew install ffmpeg
 
-# 3. Install PyAudio dependencies (macOS)
+# 3. Install PyAudio dependencies for microphone access (macOS example)
 brew install portaudio
 ```
 
@@ -23,152 +26,93 @@ brew install portaudio
 
 ### Option 1: Use the Start Script (Recommended)
 
+I've included a bash script that checks the environment before starting the FastAPI server.
 ```bash
 ./start_bot.sh
 ```
 
 ### Option 2: Manual Start
 
+Alternatively, you can run the services manually:
 ```bash
-# Terminal 1: Start vLLM (if not running)
+# Terminal 1: Start the vLLM server
 python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3.1-8B-Instruct --port 8000
 
-# Terminal 2: Start the web app
+# Terminal 2: Start the web application
 python app.py
 ```
 
-## Usage Flow
+## How to Use the App
 
-1. **Open Browser**: Navigate to `http://localhost:8000`
+1. **Open your Browser**: Navigate to `http://localhost:8000`.
+2. **Upload a PDF**: Drag and drop an essay PDF into the upload area. The application will extract the first 500 words to provide context for the LLM.
+3. **Start Session**: Click "Start Session". The Whisper audio model takes a moment to load into memory on the first run. The bot will then provide an initial greeting.
+4. **Engage in Dialogue**: Speak into your microphone. The application transcribes your speech in real-time. Once you pause, it sends the transcription to the LLM, which will generate a Socratic question to challenge your arguments.
+5. **End Session**: Click "End Session" when finished. Your conversation history is automatically saved to `conversations/<timestamp>.json` and exported as a `.txt` file.
 
-2. **Upload PDF**:
-   - Click the upload area or drag & drop your essay PDF
-   - First 500 words are automatically extracted
+## Testing Individual Components
 
-3. **Start Session**:
-   - Click "Start Session" button
-   - Whisper model loads (one-time, ~30 seconds)
-   - Bot greets you with initial question
-
-4. **Engage in Dialogue**:
-   - Speak into your microphone
-   - Bot listens and transcribes in real-time
-   - After 3 seconds of silence → Bot responds
-   - Response is spoken aloud automatically
-
-5. **End Session**:
-   - Click "End Session" when done
-   - Conversation saved to `conversations/<timestamp>.json`
-   - Text export created as `.txt` file
-
-## Test the Components
-
+You can test the distinct modules using these commands:
 ```bash
-# Test PDF parser
+# Test the PDF text extraction
 python modules/pdf_parser.py path/to/essay.pdf
 
-# Test vLLM connection
+# Test the vLLM connection
 python modules/vllm_client.py
 
-# Test Whisper STT
+# Test the Whisper Speech-to-Text pipeline
 python modules/whisper_stt.py
 
-# Test TTS
+# Test the Text-to-Speech (currently disabled by default)
 python modules/tts_engine.py
 
-# Test conversation manager
+# Test the JSON Database manager
 python modules/conversation_manager.py
 ```
 
 ## Troubleshooting
 
-### vLLM not responding
+### vLLM isn't responding
+Ensure your vLLM server is running in a separate terminal:
 ```bash
 python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3.1-8B-Instruct --port 8000
 ```
 
 ### Whisper model not found
-First run downloads models automatically (base ≈ 150MB)
+The first time you run the application, it will download the necessary model weights. The base model is approximately 150MB.
 
 ### Microphone not working
+If the OS assigns the wrong audio index, list the available microphones by running:
 ```bash
-# List available microphones
 python modules/whisper_stt.py
 ```
 
-### PyAudio errors (macOS)
-```bash
-brew install portaudio
-pip install --upgrade pyaudio
-```
+## Configuration Options
 
-## Configuration
-
-### Change Whisper Model (Speed vs Quality)
-
-In `app.py`, modify line 140:
+### Changing the Whisper Model (Speed vs Quality)
+You can adjust the Whisper model size in `app.py` based on your hardware capabilities:
 ```python
-model="tiny"    # Fastest, lower quality
-model="base"    # Recommended (default)
-model="small"   # Better quality, slower
-model="medium"  # High quality, much slower
+# Options: tiny, base, small, medium, large
+whisper_model = "base"  # Recommended balance of speed and accuracy
 ```
 
-### Adjust Phrase Detection Timeout
-
-**Default: 5.0 seconds**
-**Range: 4.0 - 10.0 seconds** (configurable via slider on upload page)
-
-In `app.py`, modify line 27 to change default:
+### Adjusting Silence Detection
+The application waits for a brief period of silence before processing your speech. You can adjust this default in `app.py`:
 ```python
-phrase_timeout: float = 5.0  # Default 5 seconds
-phrase_timeout: float = 4.0  # Faster responses
-phrase_timeout: float = 10.0  # Very patient
+phrase_timeout: float = 2.0  # Faster response
+phrase_timeout: float = 5.0  # More patient listening
 ```
+*(There is also a slider on the frontend UI to adjust this setting dynamically).*
 
-### Customize Socratic Prompts
-
-Edit `modules/vllm_client.py` line 16-27:
+### Customizing the Socratic Prompt
+To adjust how the bot frames its questions, edit `modules/vllm_client.py`:
 ```python
 SOCRATIC_SYSTEM_PROMPT = """
-Your custom instructions here...
+Your custom framing instructions here...
 """
 ```
 
-## File Locations
+## Privacy
 
-- **Conversations**: `conversations/<timestamp>.json`
-- **Text Exports**: `conversations/<timestamp>.txt`
-- **Temporary PDFs**: `uploads/` (auto-deleted after processing)
-
-## Key Features
-
-✅ **100% Local Processing**
-- Whisper runs locally (no OpenAI API)
-- vLLM runs locally (no external LLM calls)
-- TTS runs locally (pyttsx3)
-
-✅ **Reuses Existing Code**
-- Phrase splitting from `transcribe_demo.py:102-104`
-- Audio queue management from `transcribe_demo.py:78-136`
-- Whisper integration fully compatible
-
-✅ **Socratic Method**
-- LLaMA 3.1 trained to challenge arguments
-- Requests evidence for claims
-- Highlights logical gaps
-- Guides without giving answers
-
-## API Endpoints (For Advanced Use)
-
-- `GET /health` - Check system status
-- `POST /upload-pdf` - Upload essay
-- `POST /start-session` - Initialize conversation
-- `WebSocket /ws/conversation` - Real-time dialogue
-- `POST /end-session` - Save and close
-- `GET /sessions` - List all sessions
-- `GET /sessions/{id}` - Get session details
-
----
-
-**Ready to start? Run:** `./start_bot.sh`
+- Uploaded PDFs are stored in `uploads/` and deleted immediately after text extraction.
+- The application is designed to run entirely locally.

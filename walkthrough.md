@@ -50,3 +50,10 @@ By migrating to the `feature/vllm-backend` branch, I achieved nearly a **2.5x in
 ## Working Branch Status
 
 I have pushed the fully runnable repository to a new feature branch: `feature/vllm-backend`. These changes keep the original Whisper audio logic completely intact while radically improving the LLM generation capacity underneath.
+
+## Division of Labor / Contributions
+
+*   **[Student 1 Name]**: Engineered the initial vLLM client (`vllm_client.py`) and executed the `AsyncOpenAI` SDK wrapper integration. Designed and executed the performance benchmark script (`benchmark_vllm_vs_ollama.py`) to gather the throughput vs latency metrics.
+*   **[Student 2 Name]**: Refactored the FastAPI WebSocket architecture (`app.py`) to transparently swap the global `llm_client` object. Rewrote the startup health checks (`start_bot.sh`), managed dependency resolution (`requirements.txt`), and wrote the core task documentation (`walkthrough.md`).
+
+*(Note: Please adjust these bullet points to reflect your group's actual division of labor!)*
