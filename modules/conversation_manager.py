@@ -57,7 +57,8 @@ class ConversationManager:
         text: str,
         audio_duration: Optional[float] = None,
         audio_file: Optional[str] = None,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
+        image: Optional[Dict] = None,
     ) -> Dict:
         """
         Add a message to the conversation.
@@ -68,10 +69,51 @@ class ConversationManager:
             audio_duration: Duration of audio in seconds
             audio_file: Path to audio file (for bot responses)
             metadata: Additional metadata
+            image: (Deliverable 3) Optional image attachment dict with keys:
+                   - filename:    original filename
+                   - mime_type:   e.g. 'image/png'
+                   - stored_path: server-side path to the saved file
 
         Returns:
             The message dictionary
+
+        Schema note (Deliverable 3):
+            The 'image' field is OPTIONAL.  When absent, the message is
+            identical to the original voice-only schema, so existing
+            conversations and tooling continue to work unmodified.
+
+            Example with image:
+            {
+                "timestamp": "2025-03-15T08:30:00+00:00",
+                "speaker": "student",
+                "text": "Here is my floor plan...",
+                "image": {
+                    "filename": "plan_v2.png",
+                    "mime_type": "image/png",
+                    "stored_path": "uploads/sessions/abc123/plan_v2.png"
+                }
+            }
         """
+        # -------------------------------------------------------------------
+        # DESIGN DECISION: optional field vs. separate message type
+        # -------------------------------------------------------------------
+        # We add 'image' as an optional field on the existing message dict.
+        #
+        # Alternative 1 - Separate message type (e.g. "image_message"):
+        #   Pros:  clean type separation; consumers can switch on type.
+        #   Cons:  breaks the uniform list-of-dicts schema; every piece of
+        #          code that iterates over the conversation now needs to
+        #          handle two types.
+        #
+        # Alternative 2 - Embed image as base64 inside the JSON:
+        #   Pros:  self-contained -- no external file references.
+        #   Cons:  conversation JSON balloons to multi-MB; JSON parsers
+        #          choke on very large strings; wasteful for storage.
+        #
+        # Verdict: optional field referencing a filesystem path.  Keeps the
+        #          JSON small, backward-compatible, and easy to extend.
+        # -------------------------------------------------------------------
+
         message = {
             # Store timezone-aware ISO timestamp (+00:00)
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -87,6 +129,10 @@ class ConversationManager:
 
         if metadata:
             message["metadata"] = metadata
+
+        # Deliverable 3: attach image metadata if provided
+        if image:
+            message["image"] = image
 
         self.conversation.append(message)
 

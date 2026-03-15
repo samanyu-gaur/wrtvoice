@@ -1,0 +1,32 @@
+{
+  "session_id": "2026-03-15_17-48-11",
+  "session_start": "2026-03-15T17:48:11.663723+00:00",
+  "session_duration_seconds": 0.003062,
+  "pdf_context": "Test context",
+  "pdf_metadata": {},
+  "conversation": [
+    {
+      "timestamp": "2026-03-15T17:48:11.665833+00:00",
+      "speaker": "student",
+      "text": "Here is my argument."
+    },
+    {
+      "timestamp": "2026-03-15T17:48:11.666355+00:00",
+      "speaker": "student",
+      "text": "Here is my floor plan.",
+      "image": {
+        "filename": "plan_v2.png",
+        "mime_type": "image/png",
+        "stored_path": "uploads/sessions/test/plan_v2.png"
+      }
+    },
+    {
+      "timestamp": "2026-03-15T17:48:11.666772+00:00",
+      "speaker": "bot",
+      "text": "Tell me about the circulation path."
+    }
+  ],
+  "message_count": 3,
+  "student_messages": 2,
+  "bot_messages": 1
+}
