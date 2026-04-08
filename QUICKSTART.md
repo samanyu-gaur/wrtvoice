@@ -58,7 +58,7 @@ You can test the distinct modules using these commands:
 python modules/pdf_parser.py path/to/essay.pdf
 
 # Test the vLLM connection
-python modules/vllm_client.py
+python modules/deliv1_vllm_client.py
 
 # Test the Whisper Speech-to-Text pipeline
 python modules/whisper_stt.py
@@ -105,7 +105,7 @@ phrase_timeout: float = 5.0  # More patient listening
 *(There is also a slider on the frontend UI to adjust this setting dynamically).*
 
 ### Customizing the Socratic Prompt
-To adjust how the bot frames its questions, edit `modules/vllm_client.py`:
+To adjust how the bot frames its questions, edit `modules/deliv1_vllm_client.py`:
 ```python
 SOCRATIC_SYSTEM_PROMPT = """
 Your custom framing instructions here...

@@ -10,7 +10,7 @@ This log details the recent changes made to the application, primarily focusing 
 **The Fix**: I migrated the backend engine from Ollama to vLLM to utilize continuous batching.
 
 **What was changed**:
-- Replaced `modules/ollama_client.py` with a new `modules/vllm_client.py`.
+- Replaced `modules/ollama_client.py` with a new `modules/deliv1_vllm_client.py`.
 - Adopted the official `openai` Python SDK since vLLM provides an OpenAI-compatible API. This simplified the code by removing the need for custom JSON streaming parsers.
 - Updated `app.py` to use `VLLMClient` without altering the existing Whisper WebSocket logic.
 

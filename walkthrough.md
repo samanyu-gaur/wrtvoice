@@ -21,7 +21,7 @@ All of my changes are fully contained within the `feature/vllm-backend` branch o
 
 ## Key Files Modified
 
-- **[NEW] `modules/vllm_client.py`**: I created this as a drop-in replacement for `ollama_client.py`, natively utilizing the `openai` SDK.
+- **[NEW] `modules/deliv1_vllm_client.py`**: I created this as a drop-in replacement for `ollama_client.py`, natively utilizing the `openai` SDK.
 - **[DELETE] `modules/ollama_client.py`**: I removed the legacy Ollama client.
 - **[MODIFY] `app.py`**: I modified the main application loop to instantiate my new `VLLMClient` instead of `OllamaClient`, passing the `llm_client` object down to the websocket streams.
 - **[MODIFY] `requirements.txt`**, **`requirements_web.txt`**, **`requirements_all.txt`**: I added the required `openai` dependency.
@@ -54,7 +54,7 @@ I have pushed the fully runnable repository to a new feature branch: `feature/vl
 ## Division of Labor / Contributions
 
 *   **Samanyu Gaur**: 
-    *   **Deliverable 1 (Backend Migration)**: Completed the entire migration from Ollama to vLLM independently, including the code rewrite (`vllm_client.py`, `app.py`), benchmarking script, and documentation.
+    *   **Deliverable 1 (Backend Migration)**: Completed the entire migration from Ollama to vLLM independently, including the code rewrite (`deliv1_vllm_client.py`, `app.py`), benchmarking script, and documentation.
     *   **Deliverable 2 (Session Management)**: Developed the methodology, system design, and resource estimation for the session management layer.
 *   **Akshay**: 
     *   **Deliverable 2 (Session Management)**: Implemented the backend code for the session queue, concurrency handling, and the admin dashboard interface.

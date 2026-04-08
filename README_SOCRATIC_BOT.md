@@ -61,7 +61,7 @@ Navigate to `http://localhost:8000` in your browser.
 
 - `app.py`: The main FastAPI server and WebSocket router.
 - `transcribe_demo.py`: The original Whisper base implementation.
-- `modules/vllm_client.py`: Custom client for interfacing with the vLLM server.
+- `modules/deliv1_vllm_client.py`: Custom client for interfacing with the vLLM server.
 - `modules/whisper_stt.py`: Handles the real-time speech-to-text pipeline.
 - `modules/conversation_manager.py`: Manages session state and JSON logging.
 - `static/`: Frontend HTML, CSS, and JavaScript.

@@ -1,5 +1,5 @@
 """
-vLLM Client Module
+Deliverable 1 vLLM Client Module
 Handles communication with a vLLM server via the OpenAI-compatible API.
 """
 

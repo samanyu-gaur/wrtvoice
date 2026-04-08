@@ -1,11 +1,18 @@
 """
 Socratic Method Bot - Main Application
 FastAPI server for real-time transcription and Socratic dialogue.
+
+Modified for Deliverables 2 & 3:
+  - Multi-user session management (replaces single global session dict)
+  - Inference concurrency control via asyncio.Semaphore
+  - Admin dashboard mounted at /admin/dashboard
+  - Vision design critique routes mounted at /api/vision/*
+  - Resource estimation endpoint at /api/resource-estimate
 """
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from pydantic import BaseModel
 import uvicorn
 import asyncio
@@ -15,10 +22,22 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from modules.pdf_parser import PDFParser
-from modules.vllm_client import VLLMClient
+from modules.deliv1_vllm_client import VLLMClient
 from modules.whisper_stt import WhisperSTT
 from modules.tts_engine import TTSEngine
 from modules.conversation_manager import ConversationManager
+
+# ---- Deliverable 2 imports ------------------------------------------------
+from modules.deliv2_session_manager import SessionManager
+from modules.deliv2_admin_dashboard import router as admin_router
+from modules.deliv2_admin_dashboard import init_dashboard
+from modules.deliv2_resource_estimation import generate_full_report
+
+# ---- Deliverable 3 imports ------------------------------------------------
+from modules.deliv3_vision_client import VisionClient
+from modules.deliv3_vision_routes import router as vision_router
+from modules.deliv3_vision_routes import init_vision_routes
+from modules.deliv3_compute_assessment import full_assessment
 
 
 # Request models
@@ -37,7 +56,25 @@ conversation_manager = ConversationManager(storage_dir="conversations")
 llm_client = VLLMClient()
 # tts_engine = TTSEngine(rate=160, volume=0.9)  # Disabled for now (haunting voice)
 
-# Session state
+# ---- Deliverable 2: Multi-user session management -------------------------
+# The SessionManager replaces the old single-user global dict for new
+# multi-user endpoints.  The original single-user routes below are kept
+# intact so existing functionality is not broken.
+session_manager = SessionManager(
+    max_concurrent_inferences=10,
+    conversation_storage_dir="conversations",
+)
+
+# Wire up the admin dashboard
+init_dashboard(session_manager)
+app.include_router(admin_router)
+
+# ---- Deliverable 3: Vision design critique ---------------------------------
+vision_client = VisionClient()  # defaults to llava:latest via Ollama
+init_vision_routes(vision_client)
+app.include_router(vision_router)
+
+# ---- Original single-user session state (kept for backward compat) ---------
 current_session = {
     "pdf_uploaded": False,
     "pdf_context": "",
@@ -391,6 +428,76 @@ async def list_microphones():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ---- Deliverable 2: Resource estimation endpoint ---------------------------
+
+@app.get("/api/resource-estimate")
+async def resource_estimate():
+    """
+    Return GPU resource estimation for the 250-student pilot.
+    See deliv2_resource_estimation.py for the underlying model.
+    """
+    return JSONResponse(generate_full_report())
+
+
+# ---- Deliverable 3: Compute assessment endpoint ----------------------------
+
+@app.get("/api/compute-assessment")
+async def compute_assessment():
+    """
+    Return the VLM compute impact assessment.
+    See deliv3_compute_assessment.py for details.
+    """
+    return JSONResponse(full_assessment())
+
+
+# ---- Deliverable 2: Multi-user API routes ----------------------------------
+# These are new routes that use the SessionManager for proper multi-user
+# support.  The original single-user routes above are kept as-is.
+
+@app.post("/api/sessions")
+async def create_session(
+    pdf_context: str = "",
+):
+    """
+    Create a new multi-user session. Returns a session_id that the
+    client must include in subsequent requests.
+    """
+    session_id = await session_manager.create_session(
+        pdf_context=pdf_context,
+    )
+    return {"session_id": session_id}
+
+
+@app.get("/api/sessions/{session_id}")
+async def get_session_info(session_id: str):
+    """Get state and conversation of a multi-user session."""
+    session = await session_manager.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {
+        "session_id": session["session_id"],
+        "state": session["state"],
+        "created_at": session["created_at"].isoformat(),
+        "message_count": len(session["conversation_manager"].conversation),
+    }
+
+
+@app.delete("/api/sessions/{session_id}")
+async def delete_session(session_id: str):
+    """End and remove a multi-user session."""
+    removed = await session_manager.remove_session(session_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"success": True, "message": "Session removed"}
+
+
+@app.get("/api/sessions/{session_id}/queue-position")
+async def queue_position(session_id: str):
+    """Check the approximate queue position for a session."""
+    info = await session_manager.get_queue_position(session_id)
+    return info
+
+
 if __name__ == "__main__":
     print("=" * 70)
     print("Socratic Method Bot - Starting Server")
@@ -403,6 +510,21 @@ if __name__ == "__main__":
     else:
         print("✗ WARNING: vLLM is not running!")
         print("  Start it with: python -m vllm.entrypoints.openai.api_server --model meta-llama/Meta-Llama-3.1-8B-Instruct --port 8000")
+
+    # Deliverable 3: Check vision model
+    print("\nChecking vision model...")
+    if vision_client.check_model_available():
+        print("[OK] Vision model (llava) available")
+    else:
+        print("[!!] Vision model (llava) not found. Pull with: ollama pull llava")
+
+    print("\nRoutes added by Deliverables 2 & 3:")
+    print("  /admin/dashboard        -- Admin monitoring page")
+    print("  /admin/api/stats        -- Admin metrics JSON")
+    print("  /api/sessions           -- Multi-user session management")
+    print("  /api/resource-estimate  -- GPU allocation report")
+    print("  /api/vision/analyze     -- Image design critique")
+    print("  /api/compute-assessment -- VLM compute impact")
 
     print("\nServer will start at: http://localhost:8000")
     print("Press Ctrl+C to stop\n")
