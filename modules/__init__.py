@@ -3,7 +3,7 @@ Socratic Method Bot - Core Modules
 """
 
 from .pdf_parser import PDFParser
-from .ollama_client import OllamaClient
+from .deliv1_vllm_client import VLLMClient
 from .whisper_stt import WhisperSTT
 from .tts_engine import TTSEngine
 from .conversation_manager import ConversationManager
@@ -18,7 +18,7 @@ from .deliv3_compute_assessment import full_assessment
 
 __all__ = [
     'PDFParser',
-    'OllamaClient',
+    'VLLMClient',
     'WhisperSTT',
     'TTSEngine',
     'ConversationManager',
