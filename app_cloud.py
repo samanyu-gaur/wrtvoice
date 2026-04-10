@@ -136,26 +136,49 @@ async def chat_socratic(req: SocraticRequest):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+import speech_recognition as sr
+from pydub import AudioSegment
+import tempfile
+
 @app.post("/api/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):
     """
-    Cloud fallback for Whisper using Groq API (avoids Render OOM).
+    Lightweight transcription fallback using SpeechRecognition (Google Web Speech API).
+    Avoids Render RAM limits (no PyTorch) and doesn't require a blocked Groq API key!
     """
-    if not GROQ_API_KEY:
-        raise HTTPException(status_code=500, detail="GROQ_API_KEY not configured")
+    # Create temp files for the incoming audio and the converted WAV
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_in:
+        audio_content = await file.read()
+        temp_in.write(audio_content)
+        temp_in_path = temp_in.name
         
-    audio_content = await file.read()
+    temp_wav_path = temp_in_path + ".wav"
     
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
-    files = {
-        "file": (file.filename, audio_content, file.content_type),
-        "model": (None, "whisper-large-v3")
-    }
-    
-    async with httpx.AsyncClient() as client:
-        res = await client.post("https://api.groq.com/openai/v1/audio/transcriptions", headers=headers, files=files, timeout=30.0)
-        res.raise_for_status()
-        return {"text": res.json().get("text", "")}
+    try:
+        # Convert webm/mp4 to WAV format required by SpeechRecognition
+        audio = AudioSegment.from_file(temp_in_path)
+        audio.export(temp_wav_path, format="wav")
+        
+        # Transcribe
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(temp_wav_path) as source:
+            recorded_audio = recognizer.record(source)
+            text = recognizer.recognize_google(recorded_audio)
+            
+        return {"text": text}
+        
+    except sr.UnknownValueError:
+        # User didn't say anything or it was unintelligible
+        return {"text": ""}
+    except Exception as e:
+        print(f"Transcription error: {e}")
+        return {"text": ""}
+    finally:
+        # Clean up temp files
+        if os.path.exists(temp_in_path):
+            os.remove(temp_in_path)
+        if os.path.exists(temp_wav_path):
+            os.remove(temp_wav_path)
 
 if __name__ == "__main__":
     uvicorn.run("app_cloud:app", host="0.0.0.0", port=8000, reload=True)
