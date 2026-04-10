@@ -66,6 +66,28 @@ async def call_hku_llm(messages: list, stream: bool = False):
         req.raise_for_status()
         return req.json()
 
+from modules.pdf_parser import PDFParser
+import shutil
+
+@app.post("/upload-pdf")
+async def upload_pdf(file: UploadFile = File(...)):
+    if not file.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+    upload_dir = "uploads"
+    os.makedirs(upload_dir, exist_ok=True)
+    temp_path = os.path.join(upload_dir, f"temp_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.pdf")
+    try:
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        parser = PDFParser()
+        pdf_context = parser.extract_first_n_words(temp_path, n_words=500)
+        pdf_metadata = parser.get_metadata(temp_path)
+        return {"success": True, "pdf_context": pdf_context, "metadata": pdf_metadata}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if os.path.exists(temp_path): os.remove(temp_path)
+
 @app.post("/api/sessions")
 async def create_session(req: CreateSessionRequest):
     """Initialize a Supabase session with PDF context."""
@@ -182,3 +204,4 @@ async def transcribe_audio(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     uvicorn.run("app_cloud:app", host="0.0.0.0", port=8000, reload=True)
+

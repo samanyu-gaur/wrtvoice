@@ -275,9 +275,8 @@
         let uploadedFile = null;
 
         // Check vLLM status on load
-        async function checkHealth() {
             try {
-                const response = await fetch('/health');
+                const response = await fetch('https://wrtvoice.onrender.com/health');
                 const data = await response.json();
 
                 if (data.vllm_connected) {
@@ -354,7 +353,7 @@
             formData.append('file', file);
 
             try {
-                const response = await fetch('/upload-pdf', {
+                const response = await fetch('https://wrtvoice.onrender.com/upload-pdf', {
                     method: 'POST',
                     body: formData
                 });
@@ -362,7 +361,25 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    showSuccess(data.message);
+                    // Start session immediately after PDF context is extracted
+                    const sessionResponse = await fetch('https://wrtvoice.onrender.com/api/sessions', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            pdf_context: data.pdf_context,
+                            pdf_metadata: data.metadata
+                        })
+                    });
+                    
+                    const sessionData = await sessionResponse.json();
+                    
+                    // SAVE SESSION ID TO LOCAL STORAGE FOR CONVERSATION PAGE
+                    if(sessionData.session_id) {
+                        localStorage.setItem('currentSessionId', sessionData.session_id);
+                        showSuccess("PDF processed! Click Start Session.");
+                    } else {
+                        showError("Failed to initialize session on backend.");
+                    }
                     startBtn.disabled = false;
                 } else {
                     showError(data.detail || 'Error processing PDF');
@@ -382,26 +399,9 @@
             errorMsg.classList.remove('visible');
 
             try {
-                const phraseTimeout = parseFloat(document.getElementById('phraseTimeout').value);
-
-                const response = await fetch('/start-session', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        whisper_model: 'base',
-                        phrase_timeout: phraseTimeout
-                    })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    // Redirect to conversation page
-                    window.location.href = '/conversation';
-                } else {
-                    showError(data.detail || 'Error starting session');
-                    startBtn.disabled = false;
-                }
+                // Now simply redirect to conversation page since session was created!
+                window.location.href = '/conversation.html';
+                
             } catch (error) {
                 showError('Failed to start session: ' + error.message);
                 startBtn.disabled = false;
