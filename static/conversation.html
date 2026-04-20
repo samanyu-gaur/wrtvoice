@@ -277,7 +277,131 @@
     </div>
 
     <script>
-$scriptContent
+        const API_BASE_URL = "https://wrtvoice.onrender.com";
+        const sessionId = localStorage.getItem("currentSessionId");
+        
+        if (!sessionId) {
+            window.location.href = "/";
+        }
+
+        const chatContainer = document.getElementById("chatContainer");
+        const thinkingIndicator = document.getElementById("thinkingIndicator");
+        const micStatus = document.getElementById("micStatus");
+        const messageCountLabel = document.getElementById("messageCount");
+        const endBtn = document.getElementById("endBtn");
+
+        let messageCount = 0;
+        let isProcessing = false;
+
+        function addMessage(role, text) {
+            const msgDiv = document.createElement("div");
+            msgDiv.className = `message ${role}`;
+            
+            const header = document.createElement("div");
+            header.className = "message-header";
+            
+            const speaker = document.createElement("div");
+            speaker.className = "speaker-label";
+            speaker.textContent = role === 'bot' ? 'Socratic Tutor' : 'You';
+            
+            header.appendChild(speaker);
+            
+            const textContent = document.createElement("div");
+            textContent.className = "message-text";
+            textContent.textContent = text;
+            
+            msgDiv.appendChild(header);
+            msgDiv.appendChild(textContent);
+            
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            if (role === 'student' || role === 'bot') {
+                messageCount++;
+                messageCountLabel.textContent = `${Math.floor(messageCount / 2)} exchanges`;
+            }
+        }
+
+        async function processStudentInput(text) {
+            if (isProcessing || !text.trim()) return;
+            isProcessing = true;
+            
+            addMessage('student', text);
+            thinkingIndicator.classList.add('visible');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        student_input: text
+                    })
+                });
+                
+                const data = await response.json();
+                thinkingIndicator.classList.remove('visible');
+                
+                if (data.response) {
+                    addMessage('bot', data.response);
+                } else {
+                    addMessage('bot', "I encountered an error analyzing your logic.");
+                }
+            } catch (error) {
+                console.error("Chat API Error:", error);
+                thinkingIndicator.classList.remove('visible');
+                addMessage('bot', "Connection lost. Please try speaking again.");
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        // Initialize Web Speech API for transcription
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[event.results.length - 1][0].transcript;
+                micStatus.textContent = "Processing phrase...";
+                processStudentInput(transcript);
+                
+                setTimeout(() => {
+                    micStatus.textContent = "Speak naturally - pauses will trigger responses";
+                }, 2000);
+            };
+
+            recognition.onerror = (event) => {
+                console.log("Mic error:", event.error);
+                if (event.error === 'not-allowed') {
+                    micStatus.textContent = "Microphone access denied.";
+                }
+            };
+
+            recognition.onend = () => {
+                // Keep the microphone alive unless we manually stopped it
+                if (!window.isFinished) {
+                    recognition.start();
+                }
+            };
+
+            // Initial startup message logic
+            addMessage('bot', "Hello! Let's discuss your essay. What particular claims would you like to explore?");
+            recognition.start();
+
+        } else {
+            micStatus.textContent = "Browser does not support voice recognition. Please use Google Chrome.";
+            addMessage('bot', "Voice recognition is not supported on this browser.");
+        }
+
+        endBtn.addEventListener("click", () => {
+            window.isFinished = true;
+            localStorage.removeItem("currentSessionId");
+            window.location.href = "/";
+        });
 </script>
 </body>
 </html>
