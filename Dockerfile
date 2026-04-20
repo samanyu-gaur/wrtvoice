@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files
 COPY database.py .
 COPY app_cloud.py .
+COPY modules/ modules/
 
 # Copy static frontend if deployed on the same server, though Vercel is used
 # COPY static/ static/
