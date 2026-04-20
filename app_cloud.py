@@ -29,7 +29,12 @@ app.add_middleware(
 db = DatabaseManager()
 
 # Limit concurrent LLM inferences to avoid OOM on Render
-inference_semaphore = asyncio.Semaphore(10)
+inference_semaphore = None
+
+@app.on_event("startup")
+async def startup_event():
+    global inference_semaphore
+    inference_semaphore = asyncio.Semaphore(10)
 
 class SocraticRequest(BaseModel):
     session_id: str
