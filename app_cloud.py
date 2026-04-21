@@ -36,6 +36,11 @@ async def startup_event():
     global inference_semaphore
     inference_semaphore = asyncio.Semaphore(10)
 
+@app.get("/health")
+async def health_check():
+    """Lightweight health check for frontend status indicator."""
+    return {"status": "healthy", "api": "hku", "db": db.db_url is not None}
+
 class SocraticRequest(BaseModel):
     session_id: str
     student_input: str

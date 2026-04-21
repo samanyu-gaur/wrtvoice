@@ -238,23 +238,11 @@
             <div class="loading-text" id="loadingText">Processing PDF...</div>
         </div>
 
-        <div style="margin-top: 16px; text-align: left;">
-            <label style="color: #666; font-size: 14px; display: block; margin-bottom: 8px;">
-                Pause detection timeout (seconds):
-            </label>
-            <input type="range" id="phraseTimeout" min="4" max="10" step="0.5" value="5.0"
-                   style="width: 100%;" oninput="this.nextElementSibling.textContent = this.value + 's'">
-            <span style="color: #667eea; font-weight: 600;">5.0s</span>
-            <p style="font-size: 12px; color: #999; margin-top: 4px;">
-                Lower = faster responses, Higher = more patient listening
-            </p>
-        </div>
-
         <button class="btn" id="startBtn" disabled>Start Session</button>
 
         <div class="footer">
-            <span class="status-indicator inactive" id="vllmStatus"></span>
-            <span id="vllmText">Checking vLLM...</span>
+            <span class="status-indicator inactive" id="serverStatus"></span>
+            <span id="serverText">Checking server...</span>
         </div>
     </div>
 
@@ -269,26 +257,27 @@
         const loadingText = document.getElementById('loadingText');
         const errorMsg = document.getElementById('errorMsg');
         const successMsg = document.getElementById('successMsg');
-        const vllmStatus = document.getElementById('vllmStatus');
-        const vllmText = document.getElementById('vllmText');
+        const serverStatus = document.getElementById('serverStatus');
+        const serverText = document.getElementById('serverText');
 
         let uploadedFile = null;
 
-        // Check vLLM status on load
+        // Check backend health on load
+        async function checkHealth() {
             try {
                 const response = await fetch('https://wrtvoice.onrender.com/health');
                 const data = await response.json();
 
-                if (data.vllm_connected) {
-                    vllmStatus.className = 'status-indicator active';
-                    vllmText.textContent = 'vLLM connected';
+                if (data.status === 'healthy') {
+                    serverStatus.className = 'status-indicator active';
+                    serverText.textContent = 'Server connected';
                 } else {
-                    vllmStatus.className = 'status-indicator inactive';
-                    vllmText.textContent = 'vLLM not available';
+                    serverStatus.className = 'status-indicator inactive';
+                    serverText.textContent = 'Server unavailable';
                 }
             } catch (error) {
-                vllmStatus.className = 'status-indicator inactive';
-                vllmText.textContent = 'Server not responding';
+                serverStatus.className = 'status-indicator inactive';
+                serverText.textContent = 'Server not responding (cold start ~30s)';
             }
         }
 
