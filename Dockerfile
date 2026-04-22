@@ -25,5 +25,5 @@ COPY modules/ modules/
 # Expose port (Render automatically assigns PORT env variable, defaulting to 8000 here)
 EXPOSE 8000
 
-# Start FastAPI application
-CMD ["uvicorn", "app_cloud:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start FastAPI application (Render injects $PORT dynamically)
+CMD uvicorn app_cloud:app --host 0.0.0.0 --port ${PORT:-8000}

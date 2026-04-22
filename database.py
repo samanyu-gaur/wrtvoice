@@ -14,6 +14,10 @@ class DatabaseManager:
         self.db_url = os.getenv("SUPABASE_DB_URL")
         if not self.db_url:
             print("WARNING: SUPABASE_DB_URL is not set.")
+        elif "sslmode" not in self.db_url:
+            # Supabase connection pooler requires SSL
+            separator = "&" if "?" in self.db_url else "?"
+            self.db_url += f"{separator}sslmode=require"
         
         self.init_db()
 
