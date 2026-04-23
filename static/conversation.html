@@ -342,10 +342,19 @@
                 const data = await response.json();
                 thinkingIndicator.classList.remove('visible');
                 
-                if (data.response) {
+                if (!response.ok) {
+                    // Backend returned an HTTP error (4xx/5xx)
+                    const errMsg = data.detail || data.error || `Server error ${response.status}`;
+                    console.error("Backend error:", errMsg);
+                    addMessage('bot', `⚠️ Backend error: ${errMsg}`);
+                } else if (data.response) {
                     addMessage('bot', data.response);
+                } else if (data.error) {
+                    // Backend returned 200 but with an error field
+                    console.error("LLM error:", data.error);
+                    addMessage('bot', `⚠️ AI error: ${data.error}`);
                 } else {
-                    addMessage('bot', "I encountered an error analyzing your logic.");
+                    addMessage('bot', "Received an empty response. Please try again.");
                 }
             } catch (error) {
                 console.error("Chat API Error:", error);

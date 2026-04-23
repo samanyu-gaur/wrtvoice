@@ -11,6 +11,7 @@ import asyncio
 import os
 import json
 import httpx
+import traceback
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -31,15 +32,40 @@ db = DatabaseManager()
 # Limit concurrent LLM inferences to avoid OOM on Render
 inference_semaphore = None
 
+# --- API Keys ---
+HKU_API_KEY = os.getenv("HKU_API_KEY") 
+
 @app.on_event("startup")
 async def startup_event():
     global inference_semaphore
     inference_semaphore = asyncio.Semaphore(10)
+    
+    # --- Environment Variable Validation ---
+    print("=" * 50)
+    print("🚀 Socratic Oracle - Cloud Startup")
+    print("=" * 50)
+    
+    if not HKU_API_KEY:
+        print("❌ CRITICAL: HKU_API_KEY is NOT set! LLM calls will fail.")
+    else:
+        print(f"✅ HKU_API_KEY loaded ({HKU_API_KEY[:8]}...)")
+    
+    if not db.db_url:
+        print("❌ CRITICAL: SUPABASE_DB_URL is NOT set! Database operations will fail.")
+    else:
+        print(f"✅ SUPABASE_DB_URL loaded")
+    
+    print("✅ API Mode Active - No local vLLM/Ollama required")
+    print("=" * 50)
 
 @app.get("/health")
 async def health_check():
     """Lightweight health check for frontend status indicator."""
-    return {"status": "healthy", "api": "hku", "db": db.db_url is not None}
+    return {
+        "status": "healthy", 
+        "api_key_set": HKU_API_KEY is not None,
+        "db_connected": db.db_url is not None
+    }
 
 class SocraticRequest(BaseModel):
     session_id: str
@@ -50,14 +76,11 @@ class CreateSessionRequest(BaseModel):
     pdf_context: str
     pdf_metadata: Optional[dict] = {}
 
-# --- API Keys ---
-HKU_API_KEY = os.getenv("HKU_API_KEY") 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 async def call_hku_llm(messages: list, stream: bool = False):
-    """Call HKU's API endpoint (Llama 3.1 / 3.2 Vision) using httpx."""
+    """Call HKU's API endpoint using httpx."""
     if not HKU_API_KEY:
-        raise Exception("HKU_API_KEY not set")
+        raise Exception("HKU_API_KEY not set in Render environment variables")
         
     url = "https://api.hku.hk/openai/deployments/gpt-4.1-nano/chat/completions?api-version=2025-04-01-preview"
     headers = {
@@ -72,8 +95,15 @@ async def call_hku_llm(messages: list, stream: bool = False):
     }
 
     async with httpx.AsyncClient() as client:
+        print(f"[LLM] Sending {len(messages)} messages to HKU API...")
         req = await client.post(url, headers=headers, json=payload, timeout=60.0)
-        req.raise_for_status()
+        
+        if req.status_code != 200:
+            error_body = req.text
+            print(f"[LLM] ❌ HKU API returned {req.status_code}: {error_body}")
+            raise Exception(f"HKU API error ({req.status_code}): {error_body[:500]}")
+        
+        print(f"[LLM] ✅ Response received successfully")
         return req.json()
 
 from modules.pdf_parser import PDFParser
@@ -94,6 +124,7 @@ async def upload_pdf(file: UploadFile = File(...)):
         pdf_metadata = parser.get_metadata(temp_path)
         return {"success": True, "pdf_context": pdf_context, "metadata": pdf_metadata}
     except Exception as e:
+        print(f"[PDF] ❌ Upload error: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if os.path.exists(temp_path): os.remove(temp_path)
@@ -101,8 +132,13 @@ async def upload_pdf(file: UploadFile = File(...)):
 @app.post("/api/sessions")
 async def create_session(req: CreateSessionRequest):
     """Initialize a Supabase session with PDF context."""
-    session_id = db.create_session(req.pdf_context, req.pdf_metadata)
-    return {"session_id": session_id}
+    try:
+        session_id = db.create_session(req.pdf_context, req.pdf_metadata)
+        print(f"[SESSION] ✅ Created session {session_id[:8]}...")
+        return {"session_id": session_id}
+    except Exception as e:
+        print(f"[SESSION] ❌ Error: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Session creation failed: {str(e)}")
 
 @app.get("/api/sessions/{session_id}")
 async def get_session(session_id: str):
@@ -116,23 +152,31 @@ async def get_session(session_id: str):
 async def chat_socratic(req: SocraticRequest):
     """
     Main dialogue endpoint:
-    Receives user text (from Whisper frontend), applies Socratic prompt, 
-    and returns LLM critique.
+    Receives user text, applies Socratic prompt, and returns LLM critique.
     """
+    print(f"[CHAT] Incoming message for session {req.session_id[:8]}...")
+    
+    # Validate session exists
     session = db.get_session(req.session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session invalid")
+        raise HTTPException(status_code=404, detail="Session invalid or expired")
 
-    db.add_message(req.session_id, "student", req.student_input)
+    # Save student message to DB
+    try:
+        db.add_message(req.session_id, "student", req.student_input)
+    except Exception as e:
+        print(f"[CHAT] ⚠️ DB save warning (student msg): {e}")
+        # Non-fatal: continue even if save fails
     
     # Retrieve past context
     history = db.get_conversation_history(req.session_id, limit=5)
     
-    # Build OpenAI style messages
+    # Build OpenAI-compatible message array
+    pdf_text = session.get('pdf_context', '') or ''
     system_prompt = (
         "You are a Socratic tutor. Guide the student to answer their own questions. "
         "Do not directly give the answer. Analyze their logic and ask probing questions. "
-        f"Context from PDF: {session.get('pdf_context', '')[:1000]}"
+        f"Context from PDF: {pdf_text[:1000]}"
     )
     
     messages = [{"role": "system", "content": system_prompt}]
@@ -158,15 +202,24 @@ async def chat_socratic(req: SocraticRequest):
             response = await call_hku_llm(messages)
             bot_reply = response["choices"][0]["message"]["content"]
             
-            # Log to DB
-            db.add_message(req.session_id, "bot", bot_reply)
+            # Log bot response to DB
+            try:
+                db.add_message(req.session_id, "bot", bot_reply)
+            except Exception as db_err:
+                print(f"[CHAT] ⚠️ DB save warning (bot msg): {db_err}")
             
             if req.image_base64:
-                db.log_vision_critique(req.session_id, req.student_input, bot_reply)
+                try:
+                    db.log_vision_critique(req.session_id, req.student_input, bot_reply)
+                except Exception as vis_err:
+                    print(f"[CHAT] ⚠️ Vision log warning: {vis_err}")
                 
             return {"response": bot_reply}
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            error_detail = traceback.format_exc()
+            print(f"[CHAT] ❌ LLM INFERENCE FAILED:\n{error_detail}")
+            # Return the actual error so the frontend can display it
+            return {"response": None, "error": str(e)}
 
 import speech_recognition as sr
 from pydub import AudioSegment
@@ -203,7 +256,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
         # User didn't say anything or it was unintelligible
         return {"text": ""}
     except Exception as e:
-        print(f"Transcription error: {e}")
+        print(f"[STT] ❌ Transcription error: {e}")
         return {"text": ""}
     finally:
         # Clean up temp files
@@ -214,4 +267,3 @@ async def transcribe_audio(file: UploadFile = File(...)):
 
 if __name__ == "__main__":
     uvicorn.run("app_cloud:app", host="0.0.0.0", port=8000, reload=True)
-
