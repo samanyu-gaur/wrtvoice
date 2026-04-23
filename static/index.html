@@ -360,16 +360,23 @@
                         })
                     });
                     
+                    if (!sessionResponse.ok) {
+                        const errData = await sessionResponse.json();
+                        showError("Session creation failed: " + (errData.detail || "Unknown server error"));
+                        return;
+                    }
+                    
                     const sessionData = await sessionResponse.json();
                     
                     // SAVE SESSION ID TO LOCAL STORAGE FOR CONVERSATION PAGE
                     if(sessionData.session_id) {
                         localStorage.setItem('currentSessionId', sessionData.session_id);
+                        console.log("Session created:", sessionData.session_id);
                         showSuccess("PDF processed! Click Start Session.");
+                        startBtn.disabled = false;
                     } else {
                         showError("Failed to initialize session on backend.");
                     }
-                    startBtn.disabled = false;
                 } else {
                     showError(data.detail || 'Error processing PDF');
                 }

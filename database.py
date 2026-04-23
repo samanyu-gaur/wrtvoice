@@ -74,10 +74,11 @@ class DatabaseManager:
                         (session_id, pdf_context, json.dumps(pdf_metadata))
                     )
                 conn.commit()
+            print(f"[DB] ✅ Session {session_id[:8]}... inserted successfully")
             return session_id
         except Exception as e:
-            print(f"Error creating session: {e}")
-            return session_id
+            print(f"[DB] ❌ FAILED to insert session: {e}")
+            raise  # Let the error propagate so frontend knows the session wasn't actually created
 
     def get_session(self, session_id: str) -> dict:
         try:
@@ -90,10 +91,13 @@ class DatabaseManager:
                         # Update last active
                         cur.execute("UPDATE sessions SET last_active = CURRENT_TIMESTAMP WHERE session_id = %s", (session_id,))
                         conn.commit()
+                        print(f"[DB] ✅ Found session {session_id[:8]}...")
+                    else:
+                        print(f"[DB] ❌ Session {session_id[:8]}... NOT FOUND in database")
                         
             return session
         except Exception as e:
-            print(f"Error fetching session: {e}")
+            print(f"[DB] ❌ get_session error: {e}")
             return None
 
     def end_session(self, session_id: str) -> bool:

@@ -148,18 +148,30 @@ async def get_session(session_id: str):
     history = db.get_conversation_history(session_id)
     return {"session": session, "history": history}
 
+@app.get("/api/debug/session/{session_id}")
+async def debug_session(session_id: str):
+    """Debug endpoint: test if a session_id exists in Supabase. 
+    Visit https://wrtvoice.onrender.com/api/debug/session/YOUR-UUID to test."""
+    session = db.get_session(session_id)
+    return {
+        "session_id": session_id,
+        "found": session is not None,
+        "session_data": session if session else "NOT FOUND — this session was never created or the INSERT failed"
+    }
+
 @app.post("/api/chat")
 async def chat_socratic(req: SocraticRequest):
     """
     Main dialogue endpoint:
     Receives user text, applies Socratic prompt, and returns LLM critique.
     """
-    print(f"[CHAT] Incoming message for session {req.session_id[:8]}...")
+    print(f"[CHAT] Incoming message for session: {req.session_id}")
     
     # Validate session exists
     session = db.get_session(req.session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session invalid or expired")
+        print(f"[CHAT] ❌ Session {req.session_id} NOT FOUND — returning 404")
+        raise HTTPException(status_code=404, detail=f"Session invalid or expired (id: {req.session_id[:8]}...)")
 
     # Save student message to DB
     try:
